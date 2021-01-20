@@ -26,6 +26,7 @@ export interface CarouselProps {
     activePageIndicatorStyle?: ViewStyle;
     pageIndicatorStyle?: ViewStyle;
     pageIndicatorOffset?: number;
+    disableUserInteraction?: boolean;
 }
 
 export interface CarouselState {
@@ -57,7 +58,7 @@ export default class Carousel extends React.Component<CarouselProps, CarouselSta
 
     private autoPlayTimer: number = 0;
     private pageAnimation: Animated.CompositeAnimation;
-    private panResponder: PanResponderInstance;
+    private panResponder?: PanResponderInstance;
     private currentIndex: number = 0;
     private panStartIndex: number = 0;
     private panOffsetFactor: number = 0;
@@ -70,37 +71,39 @@ export default class Carousel extends React.Component<CarouselProps, CarouselSta
     }
 
     public UNSAFE_componentWillMount() {
-        this.panResponder = PanResponder.create({
-            onStartShouldSetPanResponder: () => {
-                this.startPanResponder();
-                return true;
-            },
-            onMoveShouldSetPanResponder: (e, g) => {
-                if (Math.abs(g.dx) > Math.abs(g.dy)) {
+        if(!this.props.disableUserInteraction) {
+            this.panResponder = PanResponder.create({
+                onStartShouldSetPanResponder: () => {
                     this.startPanResponder();
                     return true;
-                } else {
+                },
+                onMoveShouldSetPanResponder: (e, g) => {
+                    if (Math.abs(g.dx) > Math.abs(g.dy)) {
+                        this.startPanResponder();
+                        return true;
+                    } else {
+                        return false;
+                    }
+                },
+                onPanResponderTerminationRequest: () => {
                     return false;
+                },
+                onPanResponderGrant: () => {
+                    this.startPanResponder();
+                },
+                onPanResponderStart: (e, g) => {
+                    this.startPanResponder();
+                },
+                onPanResponderMove: (e, g) => {
+                    this.panOffsetFactor = this.computePanOffset(g);
+                    this.gotoPage(this.panStartIndex + this.panOffsetFactor, false);
+                },
+                onPanResponderEnd: (e, g) => {
+                    this.endPanResponder(g);
+                    this.scrollView.scrollTo({ x: 0, animated: false });
                 }
-            },
-            onPanResponderTerminationRequest: () => {
-                return false;
-            },
-            onPanResponderGrant: () => {
-                this.startPanResponder();
-            },
-            onPanResponderStart: (e, g) => {
-                this.startPanResponder();
-            },
-            onPanResponderMove: (e, g) => {
-                this.panOffsetFactor = this.computePanOffset(g);
-                this.gotoPage(this.panStartIndex + this.panOffsetFactor, false);
-            },
-            onPanResponderEnd: (e, g) => {
-                this.endPanResponder(g);
-                this.scrollView.scrollTo({ x: 0, animated: false });
-            }
-        });
+            });
+        }
     }
 
     public componentDidMount() {
@@ -357,7 +360,7 @@ export default class Carousel extends React.Component<CarouselProps, CarouselSta
             content = (
                 <Animated.View
                     style={{ flexDirection: 'row', width: pageSize * childrenNum, transform: [{ translateX }] }}
-                    {...this.panResponder.panHandlers}
+                    {...this.panResponder?.panHandlers}
 
                 >
                     {pages}
@@ -379,7 +382,7 @@ export default class Carousel extends React.Component<CarouselProps, CarouselSta
                     alwaysBounceVertical={false}
                     showsVerticalScrollIndicator={false}
                     showsHorizontalScrollIndicator={false}
-                    scrollEnabled={Platform.OS === 'ios' ? true : false}
+                    scrollEnabled={Platform.OS === 'ios' ? !this.props.disableUserInteraction : false}
                 >
                     {content}
                 </ScrollView>
