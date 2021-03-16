@@ -27,6 +27,8 @@ export interface CarouselProps {
     pageIndicatorStyle?: ViewStyle;
     pageIndicatorOffset?: number;
     disableUserInteraction?: boolean;
+    changeVerticalScrollEnabled?: (enabled: boolean) => void;
+    onPress?: () => void
 }
 
 export interface CarouselState {
@@ -62,6 +64,7 @@ export default class Carousel extends React.Component<CarouselProps, CarouselSta
     private currentIndex: number = 0;
     private panStartIndex: number = 0;
     private panOffsetFactor: number = 0;
+    private verticalScrollDisabled = false;
 
     constructor(props) {
         super(props);
@@ -76,6 +79,9 @@ export default class Carousel extends React.Component<CarouselProps, CarouselSta
                 onStartShouldSetPanResponder: () => {
                     this.startPanResponder();
                     return true;
+                },
+                onShouldBlockNativeResponder: (e, g) => {
+                    return !this.props.changeVerticalScrollEnabled
                 },
                 onMoveShouldSetPanResponder: (e, g) => {
                     if (Math.abs(g.dx) > Math.abs(g.dy)) {
@@ -95,10 +101,19 @@ export default class Carousel extends React.Component<CarouselProps, CarouselSta
                     this.startPanResponder();
                 },
                 onPanResponderMove: (e, g) => {
+                    if(Math.abs(g.dx) > Math.abs(g.dy) && !this.verticalScrollDisabled) {
+                        this.props.changeVerticalScrollEnabled?.(false)
+                        this.verticalScrollDisabled = true
+                    }
                     this.panOffsetFactor = this.computePanOffset(g);
                     this.gotoPage(this.panStartIndex + this.panOffsetFactor, false);
                 },
                 onPanResponderEnd: (e, g) => {
+                    if(g.dx == 0 && g.dy == 0) {
+                        this.props.onPress?.()
+                    }
+                    this.verticalScrollDisabled = false
+                    this.props.changeVerticalScrollEnabled?.(true)
                     this.endPanResponder(g);
                     this.scrollView.scrollTo({ x: 0, animated: false });
                 }
